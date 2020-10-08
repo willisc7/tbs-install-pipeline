@@ -1,0 +1,20 @@
+git_url: github.com
+harbor_hostname: harbor.example.com
+harbor_username: admin
+harbor_password: Harbor12345
+harbor_project: tbs
+tbs_pipeline_tools_img: <IMG_WITH_ALL_DEPENDENCIES>
+kubeconfig: |
+  <KUBECONFIG>
+pivnet_api_token: <PIVNET_TOKEN>
+pivnet_username: <PIVNET_USERNAME>
+pivnet_password: <PIVNET_PASSWORD>
+aws_access_key_id: <AWS_KEY>
+aws_secret_access_key: <AWS_SECRET>
+aws_region: us-gov-west-1
+s3_bucket: tbs-install
+s3_endpoint: https://s3.us-gov-west-1.amazonaws.com
+ca_cert: |
+  -----BEGIN CERTIFICATE-----
+  ...
+  -----END CERTIFICATE-----
