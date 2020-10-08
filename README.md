@@ -4,7 +4,7 @@ The purpose of this pipeline is to install Tanzu Build Service updates when manu
 
 ## Maintainer
 
-- Current mainainers are Chris Willis (mailto:chwillis@vmware.com) and Grig Gheorghiu (mailto:grig.gheorghiu@linquest.com)
+- Chris Willis (mailto:chwillis@vmware.com)
 - Originally forked from https://github.com/making/tbs-pipeline
 
 ## Set Variables
@@ -29,22 +29,11 @@ s3_bucket: s31-tbs-install
 s3_endpoint: https://s3.us-gov-west-1.amazonaws.com
 
 ## Getting Started
-0. `fly -t dev login -c https://concourse.dev.km.spaceforce.mil`
+0. `fly -t dev login -c https://<CONCOURSE_URL>`
 0. Edit `vars.yml` and put in the appropriate values
 0. `fly -t dev sp -p "Update TBS <ENV_NAME>" -c ./pipeline.yml -l ./vars.yml`
 0. `fly -t dev up -p "Update TBS <ENV_NAME>"`
 0. `fly -t dev tj -j "Update TBS <ENV_NAME>/kp-import"`
-
-### Notes
-* To delete a previous tanzu build service install run `kapp delete -a tanzu-build-service`
-* Make sure to clean up `kp secret list` prior to running pipeline or the `kp create secret` steps may fail in the pipeline
-
-
-
-
-
-# tbs-install-pipeline
-
 
 ### Notes
 * To delete a previous tanzu build service install run `kapp delete -a tanzu-build-service`
