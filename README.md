@@ -29,11 +29,14 @@ s3_bucket: s31-tbs-install
 s3_endpoint: https://s3.us-gov-west-1.amazonaws.com
 
 ## Getting Started
+0. Create the `tbs-install` S3 bucket and `tbs` Harbor project
 0. `fly -t dev login -c https://<CONCOURSE_URL>`
 0. Edit `vars.yml` and put in the appropriate values
 0. `fly -t dev sp -p "Update TBS <ENV_NAME>" -c ./pipeline.yml -l ./vars.yml`
 0. `fly -t dev up -p "Update TBS <ENV_NAME>"`
-0. `fly -t dev tj -j "Update TBS <ENV_NAME>/kp-import"`
+0. `fly -t dev tj -j "Update TBS <ENV_NAME>/relocate-images"`
+0. `kp secret create git --git-url git@github.com --git-ssh-key /path/to/git/ssh-private-key.pem`
+0. Make sure TBS is working properly `kp image create spring-music --tag harbor.willisc.lab/library/spring-music --git git@github.com:cloudfoundry-samples/spring-music.git --git-revision master --wait`
 
 ### Notes
 * To delete a previous tanzu build service install run `kapp delete -a tanzu-build-service`

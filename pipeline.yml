@@ -169,7 +169,18 @@ jobs:
           install ytt/ytt-linux-* /usr/local/bin/ytt
           install kbld/kbld-linux-* /usr/local/bin/kbld
           install kapp/kapp-linux-* /usr/local/bin/kapp
-          echo "${CA_CERT}" > ./ca_cert.crt
+          export DEBIAN_FRONTEND=noninteractive
+          mkdir /etc/docker
+          echo '{"insecure-registries" : ["((harbor_hostname))"]}' > /etc/docker/daemon.json
+          apt-get update
+          apt-get install -y\
+            apt-transport-https \
+            ca-certificates \
+            curl \
+            gnupg-agent \
+            software-properties-common
+          echo "${CA_CERT}" > /usr/local/share/ca-certificates/ca_cert.crt
+          update-ca-certificates
 
           mkdir -p ~/.kube
           cat <<EOF > ~/.kube/config
@@ -177,7 +188,7 @@ jobs:
           EOF
           ytt -f build-service/values.yaml \
               -f build-service/manifests/ \
-              -f ./ca_cert.crt \
+              -f /usr/local/share/ca-certificates/ca_cert.crt \
               -v docker_repository="${HARBOR_REPOSITORY}" \
               -v docker_username="${HARBOR_USERNAME}" \
               -v docker_password="${HARBOR_PASSWORD}" \
@@ -249,145 +260,3 @@ jobs:
           docker login registry.pivotal.io -u ${PIVNET_USERNAME} -p ${PIVNET_PASSWORD}
           docker login ${HARBOR_HOSTNAME} -u ${HARBOR_USERNAME} -p ${HARBOR_PASSWORD}
           kp import -f ./tbs-dependencies/descriptor-*.yaml
-- name: create-synchronized-secret
-  plan:
-  - in_parallel:
-    - get: images-relocated
-      passed:
-      - kp-import
-      trigger: true
-  - task: create-synchronized-secret
-    params:
-      <<: *harbor
-      KUBECONFIG_VALUE: ((kubeconfig))
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: ((tbs_pipeline_tools_img))
-      run:
-        path: bash
-        args:
-        - -ce
-        - |
-          mkdir -p ~/.kube
-          cat <<EOF > ~/.kube/config
-          ${KUBECONFIG_VALUE}
-          EOF
-          cat <<EOF | kubectl apply -f -
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: synchronized-secret
-            namespace: build-service
-            labels:
-              com.vmware.tanzu.buildservice.sync: "true"
-          type: kubernetes.io/dockerconfigjson
-          stringData:
-            .dockerconfigjson: |
-              {
-                  "auths": {
-                      "${HARBOR_HOSTNAME}": {
-                          "auth": "$(echo -n ${HARBOR_USERNAME}:${HARBOR_PASSWORD} | base64)"
-                      }
-                  }
-              }
-          EOF
-- name: kp-secret-create-default
-  plan:
-  - in_parallel:
-    - get: kp
-      resource: build-service
-      params:
-        globs: ["kp-linux-*"]
-      passed:
-      - deploy-tbs
-    - get: images-relocated
-      passed:
-      - kp-import
-      trigger: true
-  - task: kp-secret-create
-    params:
-      <<: *harbor
-      KUBECONFIG_VALUE: ((kubeconfig))
-      GITHUB_PRIVATE_KEY: ((github_private_key))
-      REGISTRY_PASSWORD: ((harbor_password))
-      GIT_URL: ((git_url))
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: ((tbs_pipeline_tools_img))
-      inputs:
-      - name: kp
-      run:
-        path: bash
-        args:
-        - -cex
-        - |
-          mkdir -p ~/.kube
-          cat <<EOF > ~/.kube/config
-          ${KUBECONFIG_VALUE}
-          EOF
-          install kp/kp-linux-* /usr/local/bin/kp
-          kp secret create harbor --registry ${HARBOR_HOSTNAME} --registry-user ${HARBOR_USERNAME}
-          export GIT_SSH_KEY_PATH=$(pwd)/git_ssh_key
-          cat <<EOF > ${GIT_SSH_KEY_PATH}
-          ${GITHUB_PRIVATE_KEY}
-          EOF
-          kp secret create github --git-url git@${GIT_URL}
-
-- name: create-bucket
-  plan:
-  - task: create-bucket
-    params:
-      S3_BUCKET: ((s3_bucket))
-      S3_ENDPOINT: ((s3_endpoint))
-      AWS_DEFAULT_REGION: ((aws_region))
-      AWS_ACCESS_KEY_ID: ((aws_access_key_id))
-      AWS_SECRET_ACCESS_KEY: ((aws_secret_access_key))
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: ((tbs_pipeline_tools_img))
-      run:
-        path: bash
-        args:
-        - -cux
-        - |
-          # Install AWS CLI
-          # TODO: whole block can be eliminated once tbs_pipeline_tools_img is made
-          apt-get update
-          apt-get install -y curl unzip
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          ./aws/install
-
-          LS=$(aws --endpoint-url ${S3_ENDPOINT} s3 ls | grep ${S3_BUCKET})
-          if [ "${LS}" = "" ];then
-            aws --endpoint-url ${S3_ENDPOINT} s3 mb s3://${S3_BUCKET}
-            aws --endpoint-url ${S3_ENDPOINT} s3api put-bucket-versioning --bucket ${S3_BUCKET} --versioning-configuration Status=Enabled
-          else
-            echo "${S3_BUCKET} already exists."
-          fi
-- name: create-harbor-project
-  plan:
-  - task: clear-harbor-project
-    params:
-      <<: *harbor
-    config:
-      platform: linux
-      image_resource:
-        type: docker-image
-        source:
-          repository: ((tbs_pipeline_tools_img))
-      run:
-        path: bash
-        args:
-        - -ce
-        - |
-          curl -s -k -u ${HARBOR_USERNAME}:${HARBOR_PASSWORD} -X POST "${HARBOR_URL}/api/v2.0/projects" -H "Content-Type: application/json" -d "{ \"project_name\": \"${HARBOR_PROJECT}\"}"
