@@ -36,6 +36,7 @@ s3_endpoint: https://s3.us-gov-west-1.amazonaws.com
 0. `fly -t dev up -p "Update TBS <ENV_NAME>"`
 0. `fly -t dev tj -j "Update TBS <ENV_NAME>/relocate-images"`
 0. `kp secret create git --git-url git@github.com --git-ssh-key /path/to/git/ssh-private-key.pem`
+0. `kp secret create harbor --registry https://<HARBOR_FQDN> --registry-user admin`
 0. Make sure TBS is working properly `kp image create spring-music --tag harbor.willisc.lab/library/spring-music --git git@github.com:cloudfoundry-samples/spring-music.git --git-revision master --wait`
 
 ### Notes
